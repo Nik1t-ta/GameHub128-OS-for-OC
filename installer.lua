@@ -403,6 +403,18 @@ local function tr(a,b)
   return lang=="English" and a or b
 end
 local languageNames={"English","German","Russian","Ukrainian","Polish","Spanish","LOLCAT","Italian"}
+
+-- Installer state. These must be initialized before the first draw().
+local page=1
+local lang="English"
+local diskAddress=nil
+local installStep=0
+local okEEPROM=false
+local errorText=""
+local countdown=5
+local cursorX=math.floor(W/2)
+local cursorY=math.floor(H/2)
+
 local function clear(bg) gpu.setBackground(bg);gpu.fill(1,1,W,H," ") end
 local function text(x,y,s,fg,bg) gpu.setForeground(fg);gpu.setBackground(bg);gpu.set(x,y,tostring(s)) end
 local function center(y,s,fg,bg) text(math.floor((W-#tostring(s))/2)+1,y,s,fg,bg) end
