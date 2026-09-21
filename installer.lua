@@ -14,28 +14,28 @@ local OS_CODE=[==[
 -- GameHub 128 OS
 -- Cursor-driven OpenComputers desktop for tier-2/3 touch screens.
 
-local gpu = component.gpu
-local screen = component.screen
-if not gpu or not screen then error("GameHub 128 requires a GPU and screen.") end
+local gpuAddress = component.list("gpu", true)()
+local screenAddress = component.list("screen", true)()
+if not gpuAddress or not screenAddress then error("GameHub 128 requires a GPU and screen.") end
+local gpu = component.proxy(gpuAddress)
+local screen = component.proxy(screenAddress)
+gpu.bind(screenAddress)
+pcall(gpu.setDepth, 8)
 local maxW,maxH=gpu.maxResolution()
 if maxW<80 or maxH<25 then error("GameHub 128 requires a tier-2 or tier-3 graphics setup for cursor input.") end
 
-gpu.bind(screen.address)
-pcall(gpu.setDepth, 8)
-
 local BOOT = rawget(_G, "GH_BOOT_ADDRESS")
 local function findBoot()
-  if BOOT and component.proxy(BOOT) then return component.proxy(BOOT) end
-  for address in component.list("filesystem") do
-    local fs = component.proxy(address)
-    if not fs.isReadOnly() and fs.exists("/init.lua") then
-      BOOT = address
-      return fs
-    end
+  if BOOT then
+    local ok,fs=pcall(component.proxy,BOOT)
+    if ok and fs and fs.exists("/GameHub128/init.lua") then return fs end
   end
   for address in component.list("filesystem") do
     local fs = component.proxy(address)
-    if fs.exists("/init.lua") then BOOT = address return fs end
+    if fs.exists("/GameHub128/init.lua") then
+      BOOT = address
+      return fs
+    end
   end
   error("GameHub 128 cannot find its system disk.")
 end
@@ -52,7 +52,7 @@ local function applyResolution(w,h)
 end
 
 local lang = "English"
-local cfgPath = "/GameHub128.cfg"
+local cfgPath = "/GameHub128/config"
 local function readConfig()
   local h = disk.open(cfgPath,"r")
   if not h then return end
@@ -65,8 +65,7 @@ local function readConfig()
   disk.close(h)
   local l = s:match("language=([^\n]+)")
   local r = s:match("resolution=(%d+)x(%d+)")
-  local valid = {English=true,German=true,Russian=true,Ukrainian=true,Polish=true,Spanish=true,LOLCAT=true,Italian=true}
-  if valid[l] then lang=l end
+  if l == "English" or l == "Ukrainian" then lang=l end
   if r then
     local a,b=tonumber(r:match("^(%d+)")),tonumber(r:match("x(%d+)$"))
     if a and b then applyResolution(a,b) end
@@ -83,79 +82,24 @@ readConfig()
 
 local T={
   English={
-    start="Start",shutdown="Shutdown",reboot="Reboot",settings="Settings",about="About",
-    language="Language",disk="System Disk",rename="Rename Disk",resolution="Resolution",
-    close="Close",save="Save",cancel="Cancel",typeName="Type a new disk name:",
-    system="GameHub 128",version="Version 1.0",subtitle="An OpenComputers desktop OS",
-    chooseLang="Choose Language",available="Available resolutions",saved="Saved.",
-    renamed="Disk renamed.",invalid="Invalid name.",rebooting="Rebooting...",shutting="Shutting down...",
-    confirm="Are you sure?",yes="Yes",no="No",ready="Ready",change="Change",back="Back"
-  },
-  German={
-    start="Start",shutdown="Herunterfahren",reboot="Neustart",settings="Einstellungen",about="Uber",
-    language="Sprache",disk="Systemdatentrager",rename="Datentrager umbenennen",resolution="Auflosung",
-    close="Schliessen",save="Speichern",cancel="Abbrechen",typeName="Neuen Datentragernamen eingeben:",
-    system="GameHub 128",version="Version 1.0",subtitle="Ein OpenComputers-Betriebssystem",
-    chooseLang="Sprache wahlen",available="Verfugbare Auflosungen",saved="Gespeichert.",
-    renamed="Datentrager umbenannt.",invalid="Ungultiger Name.",rebooting="Neustart...",shutting="Wird heruntergefahren...",
-    confirm="Bist du sicher?",yes="Ja",no="Nein",ready="Bereit",change="Andern",back="Zuruck"
-  },
-  Russian={
-    start="Пуск",shutdown="Выключение",reboot="Перезагрузка",settings="Настройки",about="О системе",
-    language="Язык",disk="Системный диск",rename="Переименовать диск",resolution="Разрешение",
-    close="Закрыть",save="Сохранить",cancel="Отмена",typeName="Введите новое имя диска:",
-    system="GameHub 128",version="Версия 1.0",subtitle="ОС для OpenComputers",
-    chooseLang="Выберите язык",available="Доступные разрешения",saved="Сохранено.",
-    renamed="Диск переименован.",invalid="Недопустимое имя.",rebooting="Перезагрузка...",shutting="Выключение...",
-    confirm="Вы уверены?",yes="Да",no="Нет",ready="Готово",change="Изменить",back="Назад"
+    start="Start", shutdown="Shutdown", reboot="Reboot", settings="Settings", about="About",
+    language="Language", disk="System Disk", rename="Rename Disk", resolution="Resolution",
+    close="Close", save="Save", cancel="Cancel", typeName="Type a new disk name:",
+    system="GameHub 128", version="Version 1.0", subtitle="An OpenComputers desktop OS",
+    chooseLang="Choose Language", available="Available resolutions", saved="Saved.",
+    renamed="Disk renamed.", invalid="Invalid name.", rebooting="Rebooting...", shutting="Shutting down...",
+    confirm="Are you sure?", yes="Yes", no="No", ready="Ready"
   },
   Ukrainian={
-    start="Пуск",shutdown="Вимкнути",reboot="Перезавантажити",settings="Налаштування",about="Про систему",
-    language="Мова",disk="Системний диск",rename="Перейменувати диск",resolution="Роздільна здатність",
-    close="Закрити",save="Зберегти",cancel="Скасувати",typeName="Введіть нову назву диска:",
-    system="GameHub 128",version="Версія 1.0",subtitle="ОС для OpenComputers",
-    chooseLang="Виберіть мову",available="Доступні роздільні здатності",saved="Збережено.",
-    renamed="Диск перейменовано.",invalid="Неприпустима назва.",rebooting="Перезавантаження...",shutting="Вимкнення...",
-    confirm="Ви впевнені?",yes="Так",no="Ні",ready="Готово",change="Змінити",back="Назад"
-  },
-  Polish={
-    start="Start",shutdown="Wylacz",reboot="Uruchom ponownie",settings="Ustawienia",about="O systemie",
-    language="Jezyk",disk="Dysk systemowy",rename="Zmien nazwe dysku",resolution="Rozdzielczosc",
-    close="Zamknij",save="Zapisz",cancel="Anuluj",typeName="Wpisz nowa nazwe dysku:",
-    system="GameHub 128",version="Wersja 1.0",subtitle="System operacyjny OpenComputers",
-    chooseLang="Wybierz jezyk",available="Dostepne rozdzielczosci",saved="Zapisano.",
-    renamed="Zmieniono nazwe dysku.",invalid="Nieprawidlowa nazwa.",rebooting="Ponowne uruchamianie...",shutting="Wylaczanie...",
-    confirm="Na pewno?",yes="Tak",no="Nie",ready="Gotowe",change="Zmien",back="Wstecz"
-  },
-  Spanish={
-    start="Inicio",shutdown="Apagar",reboot="Reiniciar",settings="Ajustes",about="Acerca de",
-    language="Idioma",disk="Disco del sistema",rename="Renombrar disco",resolution="Resolucion",
-    close="Cerrar",save="Guardar",cancel="Cancelar",typeName="Escribe un nuevo nombre de disco:",
-    system="GameHub 128",version="Version 1.0",subtitle="Un sistema operativo para OpenComputers",
-    chooseLang="Elegir idioma",available="Resoluciones disponibles",saved="Guardado.",
-    renamed="Disco renombrado.",invalid="Nombre no valido.",rebooting="Reiniciando...",shutting="Apagando...",
-    confirm="Estas seguro?",yes="Si",no="No",ready="Listo",change="Cambiar",back="Atras"
-  },
-  LOLCAT={
-    start="STRT",shutdown="shutdwn",reboot="reboOt",settings="setup",about="abt me",
-    language="lang",disk="sys disk",rename="rename disk",resolution="res",
-    close="closez",save="sAve",cancel="nope",typeName="gib new disk name:",
-    system="GameHub 128",version="v1.0",subtitle="ur OpenComputers OS lol",
-    chooseLang="pick ur lang",available="res u can haz",saved="sAveD!",
-    renamed="disk namez changed!",invalid="bad name, kitteh.",rebooting="reboOt nao...",shutting="shutdwn nao...",
-    confirm="u sure bout dis?",yes="YA",no="NAW",ready="readyz",change="chAnge",back="go bak"
-  },
-  Italian={
-    start="Avvio",shutdown="Spegni",reboot="Riavvia",settings="Impostazioni",about="Informazioni",
-    language="Lingua",disk="Disco di sistema",rename="Rinomina disco",resolution="Risoluzione",
-    close="Chiudi",save="Salva",cancel="Annulla",typeName="Inserisci un nuovo nome del disco:",
-    system="GameHub 128",version="Versione 1.0",subtitle="Un sistema operativo per OpenComputers",
-    chooseLang="Scegli lingua",available="Risoluzioni disponibili",saved="Salvato.",
-    renamed="Disco rinominato.",invalid="Nome non valido.",rebooting="Riavvio...",shutting="Spegnimento...",
-    confirm="Sei sicuro?",yes="Si",no="No",ready="Pronto",change="Cambia",back="Indietro"
+    start="Пуск", shutdown="Вимкнути", reboot="Перезавантажити", settings="Налаштування", about="Про систему",
+    language="Мова", disk="Системний диск", rename="Перейменувати диск", resolution="Роздільна здатність",
+    close="Закрити", save="Зберегти", cancel="Скасувати", typeName="Введіть нову назву диска:",
+    system="GameHub 128", version="Версія 1.0", subtitle="ОС для OpenComputers",
+    chooseLang="Виберіть мову", available="Доступні роздільні здатності", saved="Збережено.",
+    renamed="Диск перейменовано.", invalid="Неприпустима назва.", rebooting="Перезавантаження...", shutting="Вимкнення...",
+    confirm="Ви впевнені?", yes="Так", no="Ні", ready="Готово"
   }
 }
-local languageNames={"English","German","Russian","Ukrainian","Polish","Spanish","LOLCAT","Italian"}
 local function t(k) return T[lang][k] or k end
 
 local mx,my=math.floor(W/2),math.floor(H/2)
@@ -202,7 +146,7 @@ end
 
 local function drawCursor()
   if my>=H-2 then return end
-  txt(mx,my,".",0xFFFFFF,0x111827)
+  txt(mx,my,">",0xFFFFFF,0x111827)
 end
 
 local function desktop()
@@ -228,40 +172,33 @@ local function startMenu()
   drawCursor()
 end
 
-local languageOpen=false
 local function settingsWindow()
-  local w=math.min(64,W-4);local h=math.min(16,H-4);local x=math.floor((W-w)/2)+1;local y=math.floor((H-h)/2)+1
+  local w=math.min(70,W-4);local h=math.min(17,H-4);local x=math.floor((W-w)/2)+1;local y=math.floor((H-h)/2)+1
   box(x,y,w,h,0xE9EDF3,0x172131)
   txt(x+2,y+1,t("settings"),0x152033,0xE9EDF3)
-  txt(x+2,y+3,t("language")..": "..lang,0x526176,0xE9EDF3)
-  button(x+2,y+4,20,1,t("change"),hit(x+2,y+4,20,1))
-  txt(x+2,y+6,t("disk")..": "..(disk.getLabel() or "(unnamed)"),0x526176,0xE9EDF3)
-  button(x+2,y+7,24,1,t("rename"),hit(x+2,y+7,24,1))
-  txt(x+2,y+9,t("resolution"),0x526176,0xE9EDF3)
-  local rwid=math.min(14,math.floor((w-8)/4));local gap=1;local bx=x+2
+  txt(x+2,y+3,t("language"),0x526176,0xE9EDF3)
+  button(x+2,y+4,18,1,"English",lang=="English")
+  button(x+22,y+4,18,1,"Ukrainian",lang=="Ukrainian")
+  txt(x+2,y+6,t("disk")..":",0x526176,0xE9EDF3)
+  local label=disk.getLabel() or "(unnamed)"
+  txt(x+2,y+7,label,0x152033,0xE9EDF3)
+  button(x+2,y+8,22,1,t("rename"),hit(x+2,y+8,22,1))
+  txt(x+2,y+10,t("resolution"),0x526176,0xE9EDF3)
+  local mxw=math.min(14,math.floor((w-8)/4));local gap=1;local bx=x+2
   for _,r in ipairs(supported) do
     local rw,rh=r[1],r[2];local mw,mh=gpu.maxResolution()
     if rw<=mw and rh<=mh then
-      local on=(W==rw and H==rh);button(bx,y+10,rwid,1,rw.."x"..rh,on);bx=bx+rwid+gap
+      local on=(W==rw and H==rh)
+      button(bx,y+11,mxw,1,rw.."x"..rh,on);bx=bx+mxw+gap
     end
   end
   button(x+w-10,y+h-2,8,1,t("close"),hit(x+w-10,y+h-2,8,1))
   if status~="" then txt(x+2,y+h-3,status,0x3478F6,0xE9EDF3) end
   if renameMode then
-    box(x+5,y+2,w-10,7,0xEAF0F8,0x3478F6)
-    center(y+3,t("typeName"),0x152033,0xEAF0F8)
-    txt(x+8,y+5,renameText,0x152033,0xEAF0F8)
-    button(x+math.floor(w/2)-5,y+7,10,1,t("save"),hit(x+math.floor(w/2)-5,y+7,10,1))
-  end
-  if languageOpen then
-    box(x+3,y+2,w-6,h-4,0xEAF0F8,0x3478F6)
-    center(y+3,t("chooseLang"),0x152033,0xEAF0F8)
-    local cols=2;local bw=math.floor((w-10)/cols);local yy=y+5
-    for i,name in ipairs(languageNames) do
-      local col=(i-1)%cols;local row=math.floor((i-1)/cols)
-      button(x+5+col*(bw+2),yy+row*2,bw,1,name,lang==name)
-    end
-    button(x+w-12,y+h-3,8,1,t("back"),hit(x+w-12,y+h-3,8,1))
+    box(x+7,y+3,w-14,6,0xEAF0F8,0x3478F6)
+    center(y+4,t("typeName"),0x152033,0xEAF0F8)
+    txt(x+10,y+6,renameText,0x152033,0xEAF0F8)
+    button(x+math.floor(w/2)-5,y+8,10,1,t("save"),hit(x+math.floor(w/2)-5,y+8,10,1))
   end
   drawCursor()
 end
@@ -317,32 +254,24 @@ local function clickAction(x,y)
   end
 
   if settingsOpen then
-    local w=math.min(64,W-4);local h=math.min(16,H-4);local x0=math.floor((W-w)/2)+1;local y0=math.floor((H-h)/2)+1
+    local w=math.min(70,W-4);local h=math.min(17,H-4);local x0=math.floor((W-w)/2)+1;local y0=math.floor((H-h)/2)+1
     if renameMode then
       local rx=x0+math.floor(w/2)-5
-      if hit(rx,y0+7,10,1) then
+      if hit(rx,y0+8,10,1) then
         local name=renameText:gsub("[%c\n\r]",""):sub(1,24)
         if #name>0 then local ok,e=pcall(disk.setLabel,name);status=ok and t("renamed") or tostring(e);renameMode=false end
         redraw();return
       end
       return
     end
-    if languageOpen then
-      local cols=2;local bw=math.floor((w-10)/cols);local yy=y0+5
-      for i,name in ipairs(languageNames) do
-        local col=(i-1)%cols;local row=math.floor((i-1)/cols)
-        if hit(x0+5+col*(bw+2),yy+row*2,bw,1) then lang=name;languageOpen=false;writeConfig();status=t("saved");redraw();return end
-      end
-      if hit(x0+w-12,y0+h-3,8,1) then languageOpen=false;redraw();return end
-      return
-    end
-    if hit(x0+2,y0+4,20,1) then languageOpen=true;redraw();return end
-    if hit(x0+2,y0+7,24,1) then renameMode=true;renameText=disk.getLabel() or "";redraw();return end
+    if hit(x0+2,y0+4,18,1) then lang="English";writeConfig();status=t("saved");redraw();return end
+    if hit(x0+22,y0+4,18,1) then lang="Ukrainian";writeConfig();status=t("saved");redraw();return end
+    if hit(x0+2,y0+8,22,1) then renameMode=true;renameText=disk.getLabel() or "";redraw();return end
     local rwid=math.min(14,math.floor((w-8)/4));local gap=1;local bx=x0+2
     for _,r in ipairs(supported) do
       local rw,rh=r[1],r[2];local mw,mh=gpu.maxResolution()
       if rw<=mw and rh<=mh then
-        if hit(bx,y0+10,rwid,1) then applyResolution(rw,rh);writeConfig();status=rw.."x"..rh;mx,my=math.floor(W/2),math.floor(H/2);redraw();return end
+        if hit(bx,y0+11,rwid,1) then applyResolution(rw,rh);writeConfig();status=rw.."x"..rh;mx,my=math.floor(W/2),math.floor(H/2);redraw();return end
         bx=bx+rwid+gap
       end
     end
@@ -373,29 +302,59 @@ end
 
 ]==]
 local BOOT_CODE=[==[
--- GameHub 128 EEPROM boot code template.
--- The installer replaces __DISK_ADDRESS__ with the selected filesystem address.
-local component = component
-local address = "__DISK_ADDRESS__"
-local function boot(a)
-  local h, reason = component.invoke(a, "open", "/init.lua", "r")
-  if not h then error(reason or "GameHub 128: cannot open /init.lua") end
-  local data = ""
+local component,computer=component,computer
+local disk="__DISK_ADDRESS__"
+local gpuAddr=component.list("gpu")()
+local screenAddr=component.list("screen")()
+if not gpuAddr or not screenAddr then error("GameHub 128 boot: GPU or screen not found.") end
+local gpu=component.proxy(gpuAddr)
+gpu.bind(screenAddr)
+pcall(gpu.setDepth,8)
+local W,H=gpu.maxResolution()
+gpu.setResolution(W,H)
+local fs=component.proxy(disk)
+local hasExisting=fs.exists("/init.lua")
+local function clear(bg) gpu.setBackground(bg);gpu.fill(1,1,W,H," ") end
+local function center(y,s,fg,bg) gpu.setForeground(fg);gpu.setBackground(bg);gpu.set(math.floor((W-#s)/2)+1,y,s) end
+local function loadfile(path)
+  local h,e=fs.open(path,"r")
+  if not h then return nil,e end
+  local d=""
   while true do
-    local chunk, err = component.invoke(a, "read", h, 4096)
-    if not chunk then
-      if err then component.invoke(a, "close", h); error(err) end
-      break
-    end
-    data = data .. chunk
+    local x,r=fs.read(h,4096)
+    if not x then fs.close(h);if r then return nil,r end;break end
+    d=d..x
   end
-  component.invoke(a, "close", h)
-  GH_BOOT_ADDRESS = a
-  local fn, err = load(data, "=GameHub128")
-  if not fn then error(err) end
+  fs.close(h)
+  return load(d,"="..path)
+end
+local function boot(path)
+  local fn,e=loadfile(path)
+  if not fn then error(e or (path.." not found")) end
+  GH_BOOT_ADDRESS=disk
   return fn()
 end
-return boot(address)
+if not hasExisting then return boot("/GameHub128/init.lua") end
+clear(0x101827)
+center(4,"GameHub 128",0x8AB4FF,0x101827)
+center(6,"Choose an operating system",0xFFFFFF,0x101827)
+local function button(y,label) local x=math.floor(W/2)-14;gpu.setBackground(0x273141);gpu.fill(x,y,28,2," ");center(y,"[  "..label.."  ]",0xFFFFFF,0x273141);return x end
+local x1=button(9,"GameHub 128")
+local x2=button(13,"Existing OS")
+center(H-2,"GameHub 128 starts automatically in 5 seconds",0x94A3B8,0x101827)
+local deadline=computer.uptime()+5
+while computer.uptime()<deadline do
+  local e,a,b,c=computer.pullSignal(math.max(0,deadline-computer.uptime()))
+  if e=="touch" then
+    local x,y=b,c
+    if x>=x1 and x<x1+28 and y>=9 and y<11 then return boot("/GameHub128/init.lua") end
+    if x>=x2 and x<x2+28 and y>=13 and y<15 then return boot("/init.lua") end
+  elseif e=="key_down" then
+    if a==49 or c==49 then return boot("/GameHub128/init.lua") end
+    if a==50 or c==50 then return boot("/init.lua") end
+  end
+end
+return boot("/GameHub128/init.lua")
 
 ]==]
 local function tr(a,b)
@@ -447,7 +406,7 @@ local function draw()
     end
     btn(W/2-10,H-4,20,tr({English="Continue",German="Weiter",Russian="Далее",Ukrainian="Продовжити",Polish="Dalej",Spanish="Continuar",LOLCAT="gooo",Italian="Continua"}),hit(W/2-10,H-4,20,1))
   elseif page==3 then
-    base(tr({English="Choose installation disk",German="Installationsdisk wahlen",Russian="Выберите диск для установки",Ukrainian="Виберіть диск для встановлення",Polish="Wybierz dysk instalacyjny",Spanish="Elegir disco de instalacion",LOLCAT="pick da install disk",Italian="Scegli disco di installazione"}),tr({English="Select a writable filesystem",German="Schreibbares Dateisystem auswahlen",Russian="Выберите доступную для записи файловую систему",Ukrainian="Оберіть доступну для запису файлову систему",Polish="Wybierz zapisywalny system plikow",Spanish="Selecciona un sistema de archivos escribible",LOLCAT="pick writable disk",Italian="Scegli un filesystem scrivibile"}))
+    base(tr({English="Choose installation disk",German="Installationsdisk wahlen",Russian="Выберите диск для установки",Ukrainian="Виберіть диск для встановлення",Polish="Wybierz dysk instalacyjny",Spanish="Elegir disco de instalacion",LOLCAT="pick da install disk",Italian="Scegli disco di installazione"}),tr({English="Select a writable filesystem. Existing files are preserved.",German="Schreibbares Dateisystem auswahlen",Russian="Выберите доступную для записи файловую систему",Ukrainian="Оберіть доступну для запису файлову систему",Polish="Wybierz zapisywalny system plikow",Spanish="Selecciona un sistema de archivos escribible",LOLCAT="pick writable disk",Italian="Scegli un filesystem scrivibile"}))
     local y=9
     for address in component.list("filesystem") do
       local fs=component.proxy(address)
@@ -463,7 +422,7 @@ local function draw()
     btn(4,H-4,14,tr({English="Back",German="Zuruck",Russian="Назад",Ukrainian="Назад",Polish="Wstecz",Spanish="Atras",LOLCAT="bak",Italian="Indietro"}),hit(4,H-4,14,1))
     btn(W-24,H-4,18,tr({English="Install",German="Installieren",Russian="Установить",Ukrainian="Встановити",Polish="Zainstaluj",Spanish="Instalar",LOLCAT="installz",Italian="Installa"}),hit(W-24,H-4,18,1))
   elseif page==4 then
-    base(tr({English="Installing GameHub 128",German="GameHub 128 wird installiert",Russian="Установка GameHub 128",Ukrainian="Встановлення GameHub 128",Polish="Instalowanie GameHub 128",Spanish="Instalando GameHub 128",LOLCAT="installin GameHub 128",Italian="Installazione di GameHub 128"}),tr({English="Please do not power off the computer.",German="Bitte den Computer nicht ausschalten.",Russian="Не выключайте компьютер.",Ukrainian="Не вимикайте комп'ютер.",Polish="Nie wylaczaj komputera.",Spanish="No apagues el ordenador.",LOLCAT="plz dont bonk da power",Italian="Non spegnere il computer."}))
+    base(tr({English="Installing GameHub 128",German="GameHub 128 wird installiert",Russian="Установка GameHub 128",Ukrainian="Встановлення GameHub 128",Polish="Instalowanie GameHub 128",Spanish="Instalando GameHub 128",LOLCAT="installin GameHub 128",Italian="Installazione di GameHub 128"}),tr({English="Adding GameHub 128 files. Existing data will not be erased.",German="GameHub 128-Dateien werden hinzugefuegt. Vorhandene Daten bleiben erhalten.",Russian="Не выключайте компьютер.",Ukrainian="Не вимикайте комп'ютер.",Polish="Nie wylaczaj komputera.",Spanish="No apagues el ordenador.",LOLCAT="plz dont bonk da power",Italian="Non spegnere il computer."}))
     local steps={
       {"Preparing disk","Підготовка диска"},
       {"Writing system","Запис системи"},
@@ -503,11 +462,13 @@ local function installOS()
   local fs=component.proxy(diskAddress)
   if fs.isReadOnly() then return false,"Disk is read-only." end
   installStep=1;draw();computer.pullSignal(0.35)
-  local ok,e=writeFile(fs,"/init.lua",OS_CODE);if not ok then return false,e end
+  local okDir,eDir=pcall(fs.makeDirectory,"/GameHub128")
+  if not okDir then return false,eDir end
+  local ok,e=writeFile(fs,"/GameHub128/init.lua",OS_CODE);if not ok then return false,e end
   installStep=2;draw();computer.pullSignal(0.35)
-  local h,e2=fs.open("/GameHub128.cfg","w");if not h then return false,e2 end
+  local h,e2=fs.open("/GameHub128/config","w");if not h then return false,e2 end
   fs.write(h,"language="..lang.."\nresolution="..W.."x"..H.."\n")
-  fs.close(h);fs.setLabel("GameHub 128")
+  fs.close(h)
   installStep=3;draw();computer.pullSignal(0.5);return true
 end
 local function flashEEPROM()
