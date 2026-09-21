@@ -202,7 +202,7 @@ end
 
 local function drawCursor()
   if my>=H-2 then return end
-  txt(mx,my,">",0xFFFFFF,0x111827)
+  txt(mx,my,".",0xFFFFFF,0x111827)
 end
 
 local function desktop()
@@ -484,7 +484,7 @@ local function draw()
     center(10,tostring(countdown),0xFFFFFF,0x101827)
     center(12,tr({English="5 Seconds remaining until reboot",German="Noch 5 Sekunden bis zum Neustart",Russian="До перезагрузки осталось 5 секунд",Ukrainian="Залишилося 5 секунд до перезавантаження",Polish="5 sekund do ponownego uruchomienia",Spanish="5 segundos hasta reiniciar",LOLCAT="5 secz til reboOt",Italian="5 secondi al riavvio"}),0x8AB4FF,0x101827)
   end
-  if cursorY<H-2 then text(cursorX,cursorY,">",0xFFFFFF,0x101827) end
+  if cursorY<H-2 then text(cursorX,cursorY,".",0xFFFFFF,0x101827) end
 end
 
 local function writeFile(fs,path,data)
@@ -511,11 +511,23 @@ local function installOS()
   installStep=3;draw();computer.pullSignal(0.5);return true
 end
 local function flashEEPROM()
-  local ep=component.eeprom;if not ep then return false,"EEPROM not found." end
+  local ep=component.eeprom
+  if not ep then return false,"EEPROM not found." end
   local code=BOOT_CODE:gsub("__DISK_ADDRESS__",diskAddress)
-  local ok,e=ep.set(code);if not ok then return false,e end
-  local ok2,e2=pcall(ep.setLabel,"EEPROM (GameHub 128)");if not ok2 then return false,e2 end
-  pcall(ep.setData,diskAddress)
+  local maxSize=ep.getSize and ep.getSize() or 0
+  if maxSize>0 and #code>maxSize then
+    return false,"Boot code is too large for this EEPROM."
+  end
+
+  -- EEPROM#set may return nil even when the operation succeeds, so
+  -- use pcall rather than treating its return value as a success flag.
+  local ok,e=pcall(function() ep.set(code) end)
+  if not ok then return false,e end
+
+  local ok2,e2=pcall(function() ep.setLabel("EEPROM (GameHub 128)") end)
+  if not ok2 then return false,e2 end
+
+  pcall(function() ep.setData(diskAddress) end)
   return true
 end
 
